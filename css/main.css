@@ -62,3 +62,43 @@ h1 {
     width: 100%;
 }
 
+.card {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-title {
+    font-size: 16px;
+    color: #172b4d;
+    margin-bottom: 8px;
+}
+
+.card-text {
+    font-size: 14px;
+    color: #5e6c84;
+    margin-bottom: 6px;
+}
+
+.card-text small {
+    color: #6b778c;
+}
+
+.card.overdue {
+    border-left: 4px solid #d9534f;
+}
+
+.card.completed {
+    border-left: 4px solid #5cb85c;
+}
+
+
