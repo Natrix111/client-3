@@ -8,8 +8,12 @@ Vue.component('task-card', {
                 <p class="card-text"><small>Создано: {{ task.createdAt }}</small></p>
                 <p class="card-text"><small>Дедлайн: {{ task.deadline }}</small></p>
                 <p class="card-text"><small>Последнее изменение: {{ task.lastEdited }}</small></p>
-                <button @click="$emit('edit-task', task)" class="btn btn-info">Редактировать</button>
-                <button @click="$emit('delete-task', task.id)" class="btn btn-danger">Удалить</button>
+                <button @click="$emit('edit-task', task)" class="btn btn-sm btn-info">Редактировать</button>
+                <button @click="$emit('delete-task', task.id)" class="btn btn-sm btn-danger">Удалить</button>
+                <button v-if="task.status === 'planned'" @click="$emit('move-to-in-progress', task.id)" class="btn btn-warning">В работу</button>
+                <button v-if="task.status === 'in-progress'" @click="$emit('move-to-testing', task.id)" class="btn btn-warning">В тестирование</button>
+                <button v-if="task.status === 'testing'" @click="$emit('move-to-done', task.id)" class="btn btn-warning">Выполнено</button>
+                <button v-if="task.status === 'testing'" @click="$emit('move-back-to-in-progress', task.id)" class="btn btn-warning">Вернуть в работу</button>
             </div>
         </div>
     `
@@ -22,8 +26,13 @@ Vue.component('column', {
             <h3>{{ title }}</h3>
             <div v-for="task in tasks" :key="task.id">
                 <task-card :task="task" 
-                          @edit-task="$emit('edit-task', $event)" 
-                          @delete-task="$emit('delete-task', $event)"></task-card>
+                    @edit-task="$emit('edit-task', $event)" 
+                    @delete-task="$emit('delete-task', $event)"
+                    @move-to-in-progress="$emit('move-to-in-progress', $event)"
+                    @move-to-testing="$emit('move-to-testing', $event)"
+                    @move-to-done="$emit('move-to-done', $event)"
+                    @move-back-to-in-progress="$emit('move-back-to-in-progress', $event)">
+                </task-card>
             </div>
         </div>
     `
@@ -49,6 +58,7 @@ Vue.component('task-modal', {
             immediate: true,
             handler(newTask) {
                 if (newTask) {
+                    // Копируем задачу
                     this.localTask = { ...newTask };
                 } else {
                     this.localTask = {
@@ -96,7 +106,8 @@ new Vue({
             tasks: [],
             nextId: 1,
             isModalVisible: false,
-            currentTask: null
+            currentTask: null,
+            returnReason: ''
         };
     },
     computed: {
@@ -148,6 +159,41 @@ new Vue({
         },
         deleteTask(taskId) {
             this.tasks = this.tasks.filter(task => task.id !== taskId);
+        },
+        moveToInProgress(taskId) {
+            const task = this.tasks.find(task => task.id === taskId);
+            if (task) {
+                task.status = 'in-progress';
+                task.lastEdited = new Date().toLocaleString();
+            }
+        },
+        moveToTesting(taskId) {
+            const task = this.tasks.find(task => task.id === taskId);
+            if (task) {
+                task.status = 'testing';
+                task.lastEdited = new Date().toLocaleString();
+            }
+        },
+        moveToDone(taskId) {
+            const task = this.tasks.find(task => task.id === taskId);
+            if (task) {
+                task.status = 'done';
+                task.lastEdited = new Date().toLocaleString();
+                const deadline = new Date(task.deadline);
+                const now = new Date();
+                task.isOverdue = deadline < now;
+            }
+        },
+        moveBackToInProgress(taskId) {
+            const task = this.tasks.find(task => task.id === taskId);
+            if (task) {
+                const reason = prompt('Укажите причину возврата задачи в работу:');
+                if (reason) {
+                    task.status = 'in-progress';
+                    task.lastEdited = new Date().toLocaleString();
+                    alert(`Задача возвращена в работу. Причина: ${reason}`);
+                }
+            }
         }
     },
     template: `
@@ -158,29 +204,29 @@ new Vue({
                 <column title="Запланированные задачи" 
                          :tasks="plannedTasks" 
                          @edit-task="openModal" 
-                         @delete-task="deleteTask">
-                </column>
+                         @delete-task="deleteTask"
+                         @move-to-in-progress="moveToInProgress"></column>
                 <column title="Задачи в работе" 
                          :tasks="inProgressTasks" 
                          @edit-task="openModal" 
-                         @delete-task="deleteTask">
-                </column>
-                <column title="Тестирование" 
+                         @delete-task="deleteTask"
+                         @move-to-testing="moveToTesting"></column>
+                <column title="Тестирование"
                          :tasks="testingTasks" 
                          @edit-task="openModal" 
-                         @delete-task="deleteTask">
-                </column>
+                         @delete-task="deleteTask"
+                         @move-to-done="moveToDone"
+                         @move-back-to-in-progress="moveBackToInProgress"></column>
                 <column title="Выполненные задачи" 
                          :tasks="doneTasks" 
                          @edit-task="openModal" 
-                         @delete-task="deleteTask">
-                </column>
+                         @delete-task="deleteTask"></column>
             </div>
             <task-modal 
                 :task="currentTask" 
                 :isVisible="isModalVisible" 
                 @save-task="saveTask" 
-                @close-modal="isModalVisible = false">  
+                @close-modal="isModalVisible = false">
             </task-modal>
         </div>
     `
