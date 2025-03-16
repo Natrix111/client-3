@@ -8,6 +8,10 @@ Vue.component('task-card', {
                 <p class="card-text"><small>Создано: {{ task.createdAt }}</small></p>
                 <p class="card-text"><small>Дедлайн: {{ task.deadline }}</small></p>
                 <p class="card-text"><small>Последнее изменение: {{ task.lastEdited }}</small></p>
+                <div v-if="task.status === 'in-progress' && task.reason" class="form-group">
+                    <label>Причина возврата:</label>
+                    <p class="card-text">{{ task.reason }}</p>
+                </div>
                 <button @click="$emit('edit-task', task)" class="btn btn-sm btn-info">Редактировать</button>
                 <button @click="$emit('delete-task', task.id)" class="btn btn-sm btn-danger">Удалить</button>
                 <button v-if="task.status === 'planned'" @click="$emit('move-to-in-progress', task.id)" class="btn btn-warning">В работу</button>
@@ -49,7 +53,8 @@ Vue.component('task-modal', {
                 createdAt: '',
                 deadline: '',
                 lastEdited: '',
-                status: 'planned'
+                status: 'planned',
+                reason: ''
             }
         };
     },
@@ -58,7 +63,6 @@ Vue.component('task-modal', {
             immediate: true,
             handler(newTask) {
                 if (newTask) {
-                    // Копируем задачу
                     this.localTask = { ...newTask };
                 } else {
                     this.localTask = {
@@ -68,7 +72,8 @@ Vue.component('task-modal', {
                         createdAt: '',
                         deadline: '',
                         lastEdited: '',
-                        status: 'planned'
+                        status: 'planned',
+                        reason: ''
                     };
                 }
             }
@@ -106,8 +111,7 @@ new Vue({
             tasks: [],
             nextId: 1,
             isModalVisible: false,
-            currentTask: null,
-            returnReason: ''
+            currentTask: null
         };
     },
     computed: {
@@ -190,8 +194,8 @@ new Vue({
                 const reason = prompt('Укажите причину возврата задачи в работу:');
                 if (reason) {
                     task.status = 'in-progress';
+                    task.reason = reason;
                     task.lastEdited = new Date().toLocaleString();
-                    alert(`Задача возвращена в работу. Причина: ${reason}`);
                 }
             }
         }
