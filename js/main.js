@@ -1,7 +1,7 @@
 Vue.component('task-card', {
     props: ['task'],
     template: `
-        <div class="card" :class="{ overdue: task.isOverdue, completed: task.status === 'done' }">
+        <div class="card" :class="{ overdue: task.isOverdue && task.status === 'done', 'completed': !task.isOverdue && task.status === 'done' }">
             <div class="card-body">
                 <h5 class="card-title">{{ task.title }}</h5>
                 <p class="card-text">{{ task.description }}</p>
@@ -44,9 +44,12 @@ Vue.component('column', {
 
 Vue.component('task-modal', {
     props: ['task', 'isVisible'],
-    data() {
-        return {
-            localTask: {
+    computed: {
+        localTask() {
+            if (this.task) {
+                return { ...this.task };
+            }
+            return {
                 id: null,
                 title: '',
                 description: '',
@@ -55,28 +58,7 @@ Vue.component('task-modal', {
                 lastEdited: '',
                 status: 'planned',
                 reason: ''
-            }
-        };
-    },
-    watch: {
-        task: {
-            immediate: true,
-            handler(newTask) {
-                if (newTask) {
-                    this.localTask = { ...newTask };
-                } else {
-                    this.localTask = {
-                        id: null,
-                        title: '',
-                        description: '',
-                        createdAt: '',
-                        deadline: '',
-                        lastEdited: '',
-                        status: 'planned',
-                        reason: ''
-                    };
-                }
-            }
+            };
         }
     },
     template: `
