@@ -8,6 +8,13 @@ Vue.component('task-card', {
                 <p class="card-text"><small>Создано: {{ task.createdAt }}</small></p>
                 <p class="card-text"><small>Дедлайн: {{ task.deadline }}</small></p>
                 <p class="card-text"><small>Последнее изменение: {{ task.lastEdited }}</small></p>
+                
+                <ul v-if="task.subtasks && task.subtasks.length">
+                    <li v-for="(subtask, index) in task.subtasks" :key="index">
+                        <input type="checkbox" v-model="subtask.completed"> {{ subtask.title }}
+                    </li>
+                </ul>
+                
                 <div v-if="task.status === 'in-progress' && task.reason" class="form-group">
                     <label>Причина возврата:</label>
                     <p class="card-text">{{ task.reason }}</p>
@@ -16,11 +23,16 @@ Vue.component('task-card', {
                 <button @click="$emit('delete-task', task.id)" class="btn btn-sm btn-danger">Удалить</button>
                 <button v-if="task.status === 'planned'" @click="$emit('move-to-in-progress', task.id)" class="btn btn-warning">В работу</button>
                 <button v-if="task.status === 'in-progress'" @click="$emit('move-to-testing', task.id)" class="btn btn-warning">В тестирование</button>
-                <button v-if="task.status === 'testing'" @click="$emit('move-to-done', task.id)" class="btn btn-warning">Выполнено</button>
+                <button v-if="task.status === 'testing' && allSubtasksCompleted" @click="$emit('move-to-done', task.id)" class="btn btn-warning">Выполнено</button>
                 <button v-if="task.status === 'testing'" @click="$emit('move-back-to-in-progress', task.id)" class="btn btn-warning">Вернуть в работу</button>
             </div>
         </div>
-    `
+    `,
+    computed: {
+        allSubtasksCompleted() {
+            return this.task.subtasks && this.task.subtasks.length > 0 ? this.task.subtasks.every(st => st.completed) : true;
+        }
+    }
 });
 
 Vue.component('column', {
@@ -44,21 +56,37 @@ Vue.component('column', {
 
 Vue.component('task-modal', {
     props: ['task', 'isVisible'],
-    computed: {
-        localTask() {
-            if (this.task) {
-                return { ...this.task };
+    data() {
+        return {
+            localTask: { id: null, title: '', description: '', deadline: '', status: 'planned', subtasks: [] },
+            newSubtaskTitle: ''
+        };
+    },
+    watch: {
+        task: {
+            immediate: true,
+            handler(newTask) {
+                if (newTask) {
+                    this.localTask = { ...newTask, subtasks: newTask.subtasks || [] };
+                } else {
+                    this.localTask = { id: null, title: '', description: '', deadline: '', status: 'planned', subtasks: [] };
+                }
             }
-            return {
-                id: null,
-                title: '',
-                description: '',
-                createdAt: '',
-                deadline: '',
-                lastEdited: '',
-                status: 'planned',
-                reason: ''
-            };
+        }
+    },
+    methods: {
+        addSubtask() {
+            if (this.localTask.subtasks.length < 3 && this.newSubtaskTitle.trim()) {
+                this.localTask.subtasks.push({ title: this.newSubtaskTitle, completed: false });
+                this.newSubtaskTitle = '';
+            }
+        },
+        saveTask() {
+            if (!this.localTask.title || !this.localTask.description || !this.localTask.deadline) {
+                alert('Все поля обязательны!');
+                return;
+            }
+            this.$emit('save-task', { ...this.localTask, subtasks: [...this.localTask.subtasks] });
         }
     },
     template: `
@@ -77,8 +105,29 @@ Vue.component('task-modal', {
                     <label for="deadline">Дедлайн</label>
                     <input type="date" id="deadline" v-model="localTask.deadline" class="form-control" required>
                 </div>
+                <div class="form-group">
+                    <label for="priority">Приоритет</label>
+                    <select id="priority" v-model="localTask.priority" class="form-control" required>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Подзадачи (не более 3):</label>
+                    <div>
+                        <div v-for="(subtask, index) in localTask.subtasks" :key="index">
+                            <input type="text" v-model="subtask.title" class="form-control" placeholder="Введите подзадачу">
+                            <button @click="localTask.subtasks.splice(index, 1)" class="btn btn-sm btn-danger">Удалить</button>
+                        </div>
+                    </div>
+                    <input type="text" v-model="newSubtaskTitle" placeholder="Новая подзадача" class="form-control">
+                    <button @click="addSubtask" class="btn btn-sm btn-primary" :disabled="localTask.subtasks.length >= 3">Добавить подзадачу</button>
+                </div>
                 <div class="modal-actions">
-                    <button @click="$emit('save-task', localTask)" class="btn btn-primary">Сохранить</button>
+                    <button @click="saveTask" class="btn btn-primary">Сохранить</button>
                     <button @click="$emit('close-modal')" class="btn btn-secondary">Отмена</button>
                 </div>
             </div>
@@ -98,13 +147,13 @@ new Vue({
     },
     computed: {
         plannedTasks() {
-            return this.tasks.filter(task => task.status === 'planned');
+            return this.tasks.filter(task => task.status === 'planned').sort((a, b) => b.priority - a.priority);
         },
         inProgressTasks() {
-            return this.tasks.filter(task => task.status === 'in-progress');
+            return this.tasks.filter(task => task.status === 'in-progress').sort((a, b) => b.priority - a.priority);
         },
         testingTasks() {
-            return this.tasks.filter(task => task.status === 'testing');
+            return this.tasks.filter(task => task.status === 'testing').sort((a, b) => b.priority - a.priority);
         },
         doneTasks() {
             return this.tasks.map(task => {
@@ -112,7 +161,7 @@ new Vue({
                 const now = new Date();
                 task.isOverdue = deadline < now;
                 return task;
-            }).filter(task => task.status === 'done');
+            }).filter(task => task.status === 'done').sort((a, b) => b.priority - a.priority);
         }
     },
     methods: {
@@ -163,6 +212,10 @@ new Vue({
         moveToDone(taskId) {
             const task = this.tasks.find(task => task.id === taskId);
             if (task) {
+                if (task.subtasks && task.subtasks.length > 0 && !task.subtasks.every(st => st.completed)) {
+                    alert('Не все подзадачи выполнены!');
+                    return;
+                }
                 task.status = 'done';
                 task.lastEdited = new Date().toLocaleString();
                 const deadline = new Date(task.deadline);
